@@ -7,7 +7,7 @@ The repository contains the presentation slides and a demo for creating a gif of
 
 ### How to use the demo
 
-If you want to just visualise the code you can go to **[This Link](https://htmlpreview.github.io/?https://github.com/Lucia-Michielin/DesignInformatics/DI-Demo/DI_Demo.html)**
+If you want to just visualise the code you can go to **[This Link](https://htmlpreview.github.io/?https://github.com/Lucia-Michielin/DesignInformatics/blob/main/DI_Demo/DI_Demo.html)**
 
 If you want to play around with the code the easiest way to do so is via Noteable 
 
