@@ -25,4 +25,4 @@ Now you can access every file in this repo
 
 
 ## Licence of the material
-All the material collected here is covered by a CC-BY-NC 4.0 License
+All the material collected here is covered by a CC-BY-NC 4.0 License.
