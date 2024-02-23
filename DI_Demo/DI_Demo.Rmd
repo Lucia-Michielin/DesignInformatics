@@ -1,0 +1,182 @@
+---
+title: "DI_Demo"
+author: "Lucia Michielin"
+date: "2024-02-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning= FALSE, message = FALSE)
+#install.packages("tidytext")
+#install.packages("tidyverse")
+#install.packages("janeaustenr")
+#install.packages("magick") 
+
+library(tidytext) # to work with unstructured data
+library(tidyverse) # to do data wrangling
+get_sentiments("bing")
+library(janeaustenr) # to fetch the dataset
+library(magick) # to display images
+# these are the libraries we need if you do not have them already and you get an error remove the # from the install.packages()lines
+
+```
+
+## Introduction
+
+This is a short demo to show how you can create a .gif that would record the sentiment evolution across Jane Austen books. To do so we need to follow these steps
+
+1.  Create a Table where we are going to automatically extract each word in Jane Austen books.
+2.  Calculate the sentiment values for subset of each chapters
+3.  Plot a graph for each book that will show the sentiment values
+4.  Collate the single graphs into a single gif
+
+### 1. Create a word collection table
+
+For each words we are going to collect information about
+
+-   the book it belongs to
+-   the line number where it could be found
+-   the chapter where it could be found
+-   the word itself
+
+```{r Austen table}
+AustenTable <- austen_books() %>% #create a new file named AustenTable that will extract info from austen_books
+  group_by(book) %>% # group by every single book then
+  mutate( # manipulate the data to create
+    linenumber = row_number(), # a line number column that would count in which row the word was
+    chapter = cumsum(str_detect(text, # the chapter number. We can do so by using regex and find lines starting with chapter followed by a space and a letter 
+                                regex("^chapter [\\divxlc]", 
+                                      ignore_case = TRUE)))) %>%
+  ungroup() %>% #  This line removes the grouping, so subsequent operations will be applied to the entire dataset rather than grouped subsets.
+  unnest_tokens(word, text) # This tokenises the text column, splitting it into individual words and creating a new row for each word
+
+head(AustenTable)
+```
+
+### 2. Create a word collection table
+
+Now that we have the list of all words we extract the average sentiment of subsets of each chapter of each book. To do so as before we manipulate our dataset to do what we want. Because we want to create an uniform pattern that would simulate a tapestry we want to divide our subset to
+
+```{r Austen Sentiment}
+jane_austen_sentiment <- AustenTable %>% # Load Jane Austen's books dataset and start a chain of operations to create a Jane_austen_sentiment dataset
+  inner_join(get_sentiments("bing"), relationship = 'many-to-many') %>% # Join the dataset with the Bing lexicon sentiment dictionary
+  group_by(book, chapter) %>%   # Group the dataset by book and chapter
+  mutate(index = rep(1:10, each = ceiling(n() / 10), length.out = n())) %>% # Create an index to split the chapters into 10 segments no matter how long the chapter it is 
+  group_by(book, chapter, index) %>% # Regroup the dataset by book, chapter, and index
+  count(sentiment) %>%  # Count the occurrences of each sentiment within each segment
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% # Reshape the data from long to wide format
+  mutate(sentiment = positive - negative,index= as.factor(index))%>%  # Calculate sentiment score (positive - negative) for each segment
+  filter(!chapter=="0") # Filter out chapters with the value "0" (if any)
+
+head(jane_austen_sentiment)
+```
+
+### 3. Plot a graph for each book
+
+Plot a graph for each book that will show the sentiment values tapestry across the book To do so we need to do a series of small steps
+
+#### A. Create a directory to which the images will be written
+
+```{r Austen directory}
+dir_out <- file.path("outputs/Austen") # Define the directory path where the outputs will be saved
+dir.create(dir_out, recursive = TRUE) # Create the directory if it doesn't already exist
+```
+
+#### B. List all the books that are inside our dataset
+
+```{r Austen List of Books}
+books <- unique(jane_austen_sentiment$book)
+books 
+```
+
+#### C. Find which is the max number of chapters each book has
+
+```{r Books with more chapters}
+most_chapter <- max(jane_austen_sentiment$chapter, na.rm = TRUE)# Find the maximum chapter number in the dataset 'jane_austen_sentiment'
+most_chapter
+```
+
+#### D. Print a graph for each book using a for loop
+
+Now we have all that we need to create a for loop that will automatically create a graph for each book. A "for" loop is a control flow statement in programming languages that allows you to repeatedly execute a block of code a specified number of times or iterate over a sequence of values.
+
+```{r Printing For Loop}
+for (y in books) {# Iterate over each book in the 'books' vector y is the name we are going to the iteration variable it can be anything as long as you are consistent
+  
+  p <- # p is just a name we are giving to the plot again you can change it as long as you are consistent
+    jane_austen_sentiment %>%
+    filter(book == y) %>% # Filter the 'jane_austen_sentiment' dataset for the current book
+    ggplot(aes(chapter,index, fill= sentiment)) +  # Create a ggplot object with chapter, index, and sentiment as aesthetics
+    geom_tile() +# Add a tile layer to create a heatmap
+    scale_x_continuous(breaks=seq(1,most_chapter,1), expand = c(0,0))+  # Customise x-axis scale to show breaks from 1 to 'most_chapter'
+    scale_fill_gradient(low="blue", high="red", limits = c(-20, 40))+# Customise fill scale to use a gradient from blue to red
+    theme_bw()+ # Apply a black-and-white theme
+    guides(fill="none")+  # Remove the fill legend
+    ggtitle(y)+ # Add a title to the plot with the current book's name
+    coord_fixed(ratio = 1, ylim = c(10,1), xlim = c(0.5,most_chapter+0.5))+  # Fix the aspect ratio and set limits for y and x axes
+    theme(  # Customize theme to remove y-axis labels and ticks
+      axis.title.y = element_blank(),
+      axis.text.y= element_blank(),
+      axis.ticks.y = element_blank()
+    )
+  
+  fp <- file.path(dir_out, paste0(y, ".png"))# Define the file path where the plot will be saved
+  
+  ggsave(plot = p,  # Save the ggplot object as a PNG file
+         filename = fp,   # File path where the plot will be saved
+         device = "png", # Output device type (PNG format)
+         width=3500,# Width of the output in pixels
+         height = 1000, # Height of the output in pixels
+         units = "px") # Units of width and height (pixels)
+  
+}# Close the loop
+```
+
+The bit of code below it is just to look at one of the plots created
+
+```{r Look at one of the plots}
+Image <- image_read('outputs/Austen/Emma.png')
+Image
+```
+
+Good! We are almost there now we need to create a gif out of the single plots
+
+### 4. Create and Save a gif
+
+#### A. List file names and read in
+
+```{r Look what is inside the folder}
+imgs <- list.files(dir_out, full.names = TRUE) # List all file names in the directory 'dir_out' and store them in 'imgs'
+img_list <- lapply(imgs, image_read)  # Read each image file from the list of file names using 'image_read' and store them in 'img_list'
+```
+
+#### B. Join the images together
+
+```{r join the images}
+img_joined <- image_join(img_list) # Join the list of images into a single animated image using 'image_join'
+```
+
+#### C. Animate 1 frame per second
+
+```{r Animate 1 frame per second}
+img_animated <- image_animate(img_joined, fps = 1) # Create an animated image from the joined image with a frame rate of 1 frame per second using 'image_animate'
+```
+
+#### D. Save to disk
+
+```{r Save to disk}
+image_write(image = img_animated,
+            path = "outputs/austen.gif")
+```
+
+Let's look at what we have done
+
+```{r look at the gif}
+img_animated
+```
+
+
+# The End
+
+This is the end of this demo. 
+Feel free to play around with it and modify it as you want 
