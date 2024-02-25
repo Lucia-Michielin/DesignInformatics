@@ -1,9 +1,9 @@
 # Design Informatics
 
-Welcome to the Design informatics Repo. In here you can find the slides of my presentation and a short demo you can play around with 
+Welcome to the Design Informatics Repo.
 
 ## Content of the Repository
-The repository contains the presentation slides and a demo for creating a gif of the sentiment evolution throughout Jane Austen books 
+ Here you can find the slides of my presentation and a short demo you can play around with (to create a gif of the sentiment evolution throughout Jane Austen's books).
 
 ### How to use the demo
 
